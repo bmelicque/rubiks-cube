@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial } from "three";
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { Face } from "./face";
 
 const CUBIE_SIZE = 0.95;
@@ -69,12 +69,17 @@ export class Cube {
 	constructor() {
 		this.cube = makeCubeGroup();
 	}
+	get currentFace() {
+		return this.#rotatingFace;
+	}
 
 	groupFace(face: Face) {
 		this.#rotatingFace = new Group();
 		this.cube.add(this.#rotatingFace);
+		const p = new Vector3();
 		for (let child of this.cube.children.slice()) {
-			const p = child.position;
+			child.getWorldPosition(p);
+			p.round();
 			if ((face[0] && face[0] === p.x) || (face[1] && face[1] === p.y) || (face[2] && face[2] === p.z)) {
 				this.#rotatingFace.attach(child);
 			}
@@ -92,7 +97,7 @@ export class Cube {
 	}
 }
 
-enum CubieKind {
+export enum CubieKind {
 	None,
 
 	Center,

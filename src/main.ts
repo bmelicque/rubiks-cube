@@ -1,7 +1,7 @@
-import { Euler, Mesh, PerspectiveCamera, Quaternion, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
-import { Cube } from "./cube";
-import { findClippedOrientation } from "./utils";
-import { Stabilizer } from "./stabilizer";
+import { Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
+import { Cube, CubieKind, getCubieKind } from "./cube";
+import { Face } from "./face";
+import { State, StateHandler } from "./state";
 
 function makeCamera() {
 	const aspect = innerWidth / innerHeight;
@@ -26,30 +26,14 @@ document.body.appendChild(canvas);
 const cube = new Cube();
 scene.add(cube.cube);
 
-enum State {
-	Still,
-	Stabilizing,
-	Grabbing,
-}
-let currentState = State.Still;
-let grabStart: Vector2 | null = null;
-let grabStartQuaternion = new Quaternion();
+const stateHandler = new StateHandler(cube);
 
 const raycaster = new Raycaster();
 canvas.addEventListener("mousemove", (e) => {
-	if (currentState !== State.Grabbing) return;
-	if (!grabStart) throw new Error("grabStart should've been set to some value!");
-	const mouse = new Vector2(
-		(e.clientX / renderer.domElement.clientWidth) * 2 - 1,
-		-(e.clientY / renderer.domElement.clientHeight) * 2 + 1
-	);
-	mouse.sub(grabStart);
-	const euler = new Euler(-mouse.y, mouse.x);
-	const quaternion = new Quaternion().setFromEuler(euler);
-	const r = quaternion.multiply(grabStartQuaternion);
-	cube.cube.quaternion.set(r.x, r.y, r.z, r.w);
+	stateHandler.updateCube(e);
 });
 canvas.addEventListener("mousedown", (e) => {
+	if (stateHandler.state !== State.Still) return;
 	const mouse = new Vector2(
 		(e.clientX / renderer.domElement.clientWidth) * 2 - 1,
 		-(e.clientY / renderer.domElement.clientHeight) * 2 + 1
@@ -57,28 +41,36 @@ canvas.addEventListener("mousedown", (e) => {
 	raycaster.setFromCamera(mouse, camera);
 	const intersected = raycaster.intersectObjects(cube.cube.children);
 	if (intersected.length === 0) return;
-	currentState = State.Grabbing;
-	stabilizer = null;
-	grabStart = mouse;
-	grabStartQuaternion = cube.cube.quaternion.clone();
 	const intersection = intersected[0];
 	const cubie = intersection.object as Mesh;
-	// console.log(getCubieKind(cubie));
+	const cubieKind = getCubieKind(cubie);
+	switch (cubieKind) {
+		case CubieKind.Center:
+			stateHandler.setState(State.GrabbingCube, e);
+			return;
+		case CubieKind.Edge:
+			const x = Math.round(intersection.point.x);
+			const y = Math.round(intersection.point.y);
+			const face = [x, y, 0] as unknown as Face;
+			stateHandler.grabFace(face);
+			stateHandler.setState(State.GrabbingFace, e);
+			return;
+	}
 });
 
-let stabilizer: Stabilizer | null;
 canvas.addEventListener("mouseup", () => {
-	currentState = State.Stabilizing;
-	const q = findClippedOrientation(cube.cube.quaternion);
-	stabilizer = new Stabilizer(cube.cube.quaternion, q);
+	switch (stateHandler.state) {
+		case State.GrabbingCube:
+			stateHandler.setState(State.StabilizingCube);
+			return;
+		case State.GrabbingFace:
+			stateHandler.setState(State.StabilizingFace);
+			return;
+	}
 });
 
 const animate = (_: number) => {
-	if (stabilizer) {
-		const q = stabilizer.getCurrentOrientation();
-		cube.cube.quaternion.set(q.x, q.y, q.z, q.w);
-		if (stabilizer.done) stabilizer = null;
-	}
+	stateHandler.updateCube();
 	renderer.render(scene, camera);
 };
 renderer.setAnimationLoop(animate);

@@ -6,7 +6,7 @@ export class Stabilizer {
 	readonly #startedAt: number;
 	readonly #duration: number;
 
-	constructor(from: Quaternion, to: Quaternion, duration = 1000) {
+	constructor(from: Quaternion, to: Quaternion, duration = 300) {
 		this.#from = from.clone();
 		this.#to = to;
 		this.#startedAt = performance.now();
