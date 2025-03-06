@@ -1,5 +1,4 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from "three";
-import { Face } from "./face";
 
 const CUBIE_SIZE = 0.95;
 const CUBIE_SEGMENTS = 50;
@@ -62,38 +61,48 @@ export function makeCubeGroup() {
 	return group;
 }
 
+type Slice = [number, null, null] | [null, number, null] | [null, null, number];
+
 export class Cube {
 	readonly cube: Group;
-	#rotatingFace: Group | null = null;
+	#rotatingSlice: Group | null = null;
 
 	constructor() {
 		this.cube = makeCubeGroup();
 	}
-	get currentFace() {
-		return this.#rotatingFace;
+	get currentSlice() {
+		return this.#rotatingSlice;
 	}
 
-	groupFace(face: Face) {
-		this.#rotatingFace = new Group();
-		this.cube.add(this.#rotatingFace);
-		const p = new Vector3();
+	/**
+	 * Group all cubies in given slice and put them into `this.#rotatingSlice`
+	 */
+	groupSlice(slice: Slice) {
+		this.#rotatingSlice = new Group();
+		this.cube.add(this.#rotatingSlice);
 		for (let child of this.cube.children.slice()) {
-			child.getWorldPosition(p);
+			if (!(child instanceof Mesh)) continue;
+			const p = child.getWorldPosition(new Vector3());
 			p.round();
-			if ((face[0] && face[0] === p.x) || (face[1] && face[1] === p.y) || (face[2] && face[2] === p.z)) {
-				this.#rotatingFace.attach(child);
-			}
+			if (slice[0] !== null && slice[0] !== p.x) continue;
+			if (slice[1] !== null && slice[1] !== p.y) continue;
+			if (slice[2] !== null && slice[2] !== p.z) continue;
+			this.#rotatingSlice.attach(child);
 		}
 	}
 
-	ungroupFace() {
-		if (!this.#rotatingFace) return;
-		for (let child of this.#rotatingFace.children.slice()) {
+	/**
+	 * Clean up currently grouped slice
+	 */
+	ungroupSlice() {
+		if (!this.#rotatingSlice) return;
+		for (let child of this.#rotatingSlice.children.slice()) {
 			this.cube.attach(child);
 			child.position.x = Math.round(child.position.x);
 			child.position.y = Math.round(child.position.y);
 			child.position.z = Math.round(child.position.z);
 		}
+		this.#rotatingSlice = null;
 	}
 }
 

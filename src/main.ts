@@ -1,6 +1,5 @@
 import { Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
 import { Cube, CubieKind, getCubieKind } from "./cube";
-import { Face } from "./face";
 import { State, StateHandler } from "./state";
 
 function makeCamera() {
@@ -29,19 +28,38 @@ scene.add(cube.cube);
 const stateHandler = new StateHandler(cube);
 
 const raycaster = new Raycaster();
-canvas.addEventListener("mousemove", (e) => {
-	stateHandler.updateCube(e);
-});
-canvas.addEventListener("mousedown", (e) => {
-	if (stateHandler.state !== State.Still) return;
+const hovered = (e: MouseEvent) => {
 	const mouse = new Vector2(
 		(e.clientX / renderer.domElement.clientWidth) * 2 - 1,
 		-(e.clientY / renderer.domElement.clientHeight) * 2 + 1
 	);
 	raycaster.setFromCamera(mouse, camera);
-	const intersected = raycaster.intersectObjects(cube.cube.children);
-	if (intersected.length === 0) return;
-	const intersection = intersected[0];
+	return raycaster.intersectObjects(cube.cube.children)[0];
+};
+function updateCursor(e: MouseEvent) {
+	const canvas = document.querySelector("canvas")!;
+	switch (stateHandler.state) {
+		case State.Still:
+			canvas.style.cursor = hovered(e) ? "grab" : "auto";
+			return;
+		case State.StabilizingCube:
+		case State.StabilizingFace:
+			canvas.style.cursor = "auto";
+			return;
+		case State.GrabbingFace:
+		case State.GrabbingCube:
+			canvas.style.cursor = "grabbing";
+			return;
+	}
+}
+canvas.addEventListener("mousemove", (e) => {
+	stateHandler.updateCube(e);
+	updateCursor(e);
+});
+canvas.addEventListener("mousedown", (e) => {
+	if (stateHandler.state !== State.Still) return;
+	const intersection = hovered(e);
+	if (!intersection) return;
 	const cubie = intersection.object as Mesh;
 	const cubieKind = getCubieKind(cubie);
 	switch (cubieKind) {
@@ -49,10 +67,9 @@ canvas.addEventListener("mousedown", (e) => {
 			stateHandler.setState(State.GrabbingCube, e);
 			return;
 		case CubieKind.Edge:
-			const x = Math.round(intersection.point.x);
-			const y = Math.round(intersection.point.y);
-			const face = [x, y, 0] as unknown as Face;
-			stateHandler.grabFace(face);
+		case CubieKind.Corner:
+			intersection.point.round();
+			stateHandler.grabAt(new Vector2(intersection.point.x, intersection.point.y));
 			stateHandler.setState(State.GrabbingFace, e);
 			return;
 	}

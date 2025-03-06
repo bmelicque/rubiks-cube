@@ -1,8 +1,7 @@
 import { Euler, Quaternion, Vector2 } from "three";
-import { Face } from "./face";
+import { Cube } from "./cube";
 import { Stabilizer } from "./stabilizer";
 import { findClippedOrientation } from "./utils";
-import { Cube } from "./cube";
 
 export enum State {
 	Still,
@@ -22,6 +21,7 @@ export class StateHandler {
 	#state = State.Still;
 	#cube: Cube;
 	#mouseStart: Vector2 | null = null;
+	#grabbedPoint: Vector2 | null = null;
 	#cubeStartQuaternion = new Quaternion();
 	#cubeStabilizer: Stabilizer | null = null;
 	#faceRotationDirection: "x" | "y" | null = null;
@@ -45,14 +45,13 @@ export class StateHandler {
 				this.#cubeStabilizer = null;
 				break;
 			case State.GrabbingCube:
-				this.#mouseStart = null;
-				break;
 			case State.GrabbingFace:
 				this.#mouseStart = null;
+				this.#grabbedPoint = null;
 				break;
 			case State.StabilizingFace:
 				this.#faceStabilizer = null;
-				this.#cube.ungroupFace();
+				this.#cube.ungroupSlice();
 				break;
 		}
 
@@ -72,13 +71,13 @@ export class StateHandler {
 				break;
 			case State.GrabbingFace:
 				if (!e) throw new Error("invalid app state: mouse event should've been passed here!");
-				if (!this.#cube.currentFace) throw new Error("invalid app state: current face should've been set");
+				// if (!this.#cube.currentFace) throw new Error("invalid app state: current face should've been set");
 				this.#mouseStart = mousePosition(e);
-				this.#faceStartWorldQuaternion = this.#cube.currentFace!.getWorldQuaternion(new Quaternion());
+				this.#faceRotationDirection = null;
 				break;
 			case State.StabilizingFace:
 				this.#state = State.StabilizingFace;
-				const worldQuarternion = this.#cube.currentFace!.getWorldQuaternion(new Quaternion());
+				const worldQuarternion = this.#cube.currentSlice!.getWorldQuaternion(new Quaternion());
 				const faceTargetOrientation = findClippedOrientation(worldQuarternion);
 				this.#faceStabilizer = new Stabilizer(worldQuarternion, faceTargetOrientation);
 				break;
@@ -86,21 +85,39 @@ export class StateHandler {
 		this.#state = state;
 	}
 
-	grabFace(face: Face) {
-		this.#cube.groupFace(face);
-		if (face[0]) this.#faceRotationDirection = "y";
-		if (face[1]) this.#faceRotationDirection = "x";
+	grabAt(position: Vector2) {
+		this.#grabbedPoint = position;
 	}
 
-	updateGrabbedFace(mouse: Vector2) {
+	#grabSlice() {
+		if (!this.#grabbedPoint) throw new Error("no point have been grabbed!");
+		if (!this.#faceRotationDirection) throw new Error("no rotation direction!");
+
+		switch (this.#faceRotationDirection) {
+			case "x":
+				this.#cube.groupSlice([null, this.#grabbedPoint.y, null]);
+				return;
+			case "y":
+				this.#cube.groupSlice([this.#grabbedPoint.x, null, null]);
+				return;
+		}
+	}
+
+	#updateGrabbedFace(mouse: Vector2) {
 		if (!this.#mouseStart) throw new Error("invalid app state: missing mouse starting position");
 		mouse.sub(this.#mouseStart);
+		if (this.#faceRotationDirection === null) {
+			if (mouse.x === 0 && mouse.y === 0) return;
+			this.#faceRotationDirection = Math.abs(mouse.x) > Math.abs(mouse.y) ? "x" : "y";
+			this.#grabSlice();
+			this.#faceStartWorldQuaternion = this.#cube.currentSlice!.getWorldQuaternion(new Quaternion());
+		}
 		const x = this.#faceRotationDirection === "y" ? -2 * mouse.y : 0;
 		const y = this.#faceRotationDirection === "x" ? 2 * mouse.x : 0;
 		const mouseRotation = new Quaternion().setFromEuler(new Euler(x, y));
 		const worldQuaternion = mouseRotation.multiply(this.#faceStartWorldQuaternion);
 		const localQuaternion = this.#cube.cube.quaternion.clone().conjugate().multiply(worldQuaternion);
-		this.#cube.currentFace!.quaternion.copy(localQuaternion);
+		this.#cube.currentSlice!.quaternion.copy(localQuaternion);
 		return;
 	}
 
@@ -108,7 +125,7 @@ export class StateHandler {
 		if (!this.#faceStabilizer) throw new Error("invalid app state: expected stabilizer");
 		const faceWorldQuaternion = this.#faceStabilizer.getCurrentOrientation();
 		const localQuaternion = this.#cube.cube.quaternion.clone().conjugate().multiply(faceWorldQuaternion);
-		this.#cube.currentFace!.quaternion.copy(localQuaternion);
+		this.#cube.currentSlice!.quaternion.copy(localQuaternion);
 		if (this.#faceStabilizer.done) this.setState(State.Still);
 	}
 
@@ -138,7 +155,7 @@ export class StateHandler {
 				return this.#updateStabilizingCube();
 			case State.GrabbingFace:
 				if (!mouse) return; // don't update the cube in the animation loop
-				return this.updateGrabbedFace(mouse);
+				return this.#updateGrabbedFace(mouse);
 			case State.StabilizingFace:
 				return this.#updateStabilizingFace();
 		}
