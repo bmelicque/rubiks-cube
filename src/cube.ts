@@ -61,7 +61,7 @@ export function makeCubeGroup() {
 	return group;
 }
 
-type Slice = [number, null, null] | [null, number, null] | [null, null, number];
+export type Slice = [number, null, null] | [null, number, null] | [null, null, number];
 
 export class Cube {
 	readonly cube: Group;

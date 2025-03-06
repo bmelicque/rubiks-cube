@@ -43,10 +43,10 @@ function updateCursor(e: MouseEvent) {
 			canvas.style.cursor = hovered(e) ? "grab" : "auto";
 			return;
 		case State.StabilizingCube:
-		case State.StabilizingFace:
+		case State.StabilizingSlice:
 			canvas.style.cursor = "auto";
 			return;
-		case State.GrabbingFace:
+		case State.GrabbingSlice:
 		case State.GrabbingCube:
 			canvas.style.cursor = "grabbing";
 			return;
@@ -70,7 +70,7 @@ canvas.addEventListener("mousedown", (e) => {
 		case CubieKind.Corner:
 			intersection.point.round();
 			stateHandler.grabAt(new Vector2(intersection.point.x, intersection.point.y));
-			stateHandler.setState(State.GrabbingFace, e);
+			stateHandler.setState(State.GrabbingSlice, e);
 			return;
 	}
 });
@@ -80,8 +80,8 @@ canvas.addEventListener("mouseup", () => {
 		case State.GrabbingCube:
 			stateHandler.setState(State.StabilizingCube);
 			return;
-		case State.GrabbingFace:
-			stateHandler.setState(State.StabilizingFace);
+		case State.GrabbingSlice:
+			stateHandler.setState(State.StabilizingSlice);
 			return;
 	}
 });
@@ -91,3 +91,8 @@ const animate = (_: number) => {
 	renderer.render(scene, camera);
 };
 renderer.setAnimationLoop(animate);
+
+document.getElementById("cancel")?.addEventListener("click", () => {
+	if (stateHandler.state !== State.Still) return;
+	stateHandler.undoLast();
+});
