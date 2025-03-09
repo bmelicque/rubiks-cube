@@ -62,3 +62,7 @@ export function findClippedOrientation(orientation: Quaternion): Quaternion {
 	const s = getFaceName(front!) + getFaceName(top!);
 	return orientations[s as keyof typeof orientations];
 }
+
+export function equals(a: Quaternion, b: Quaternion): boolean {
+	return Math.abs(a.clone().dot(b)) > 1 - Number.EPSILON;
+}

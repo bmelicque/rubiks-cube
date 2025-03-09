@@ -1,7 +1,7 @@
 import { Euler, Quaternion, Vector2 } from "three";
 import { Cube, Slice } from "./cube";
 import { Stabilizer } from "./stabilizer";
-import { findClippedOrientation } from "./utils";
+import { equals, findClippedOrientation } from "./utils";
 
 export enum State {
 	Still,
@@ -75,7 +75,10 @@ export class StateHandler {
 
 		switch (state) {
 			case State.Still:
-				if (this.#currentAction) this.#history.push(this.#currentAction);
+				if (this.#currentAction && !equals(this.#currentAction.from, this.#currentAction.to)) {
+					this.#history.push(this.#currentAction);
+				}
+				this.#currentAction = null;
 				break;
 			case State.GrabbingCube:
 				if (!e) throw new Error("invalid app state: mouse event should've been passed here!");
@@ -121,7 +124,6 @@ export class StateHandler {
 	}
 
 	#initiateGrabRotation(mouse: Vector2) {
-		if (mouse.x === 0 && mouse.y === 0) return;
 		this.#sliceRotationDirection = Math.abs(mouse.x) > Math.abs(mouse.y) ? "x" : "y";
 		this.#grabSlice();
 		this.#startQuaternion = this.#cube.currentSlice!.getWorldQuaternion(new Quaternion());
@@ -132,6 +134,7 @@ export class StateHandler {
 	#updateGrabbedSlice(mouse: Vector2) {
 		if (!this.#mouseStart) throw new Error("invalid app state: missing mouse starting position");
 		mouse.sub(this.#mouseStart);
+		if (mouse.x === 0 && mouse.y === 0) return;
 		if (this.#sliceRotationDirection === null) this.#initiateGrabRotation(mouse);
 		const x = this.#sliceRotationDirection === "y" ? -2 * mouse.y : 0;
 		const y = this.#sliceRotationDirection === "x" ? 2 * mouse.x : 0;
