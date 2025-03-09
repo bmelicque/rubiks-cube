@@ -1,12 +1,17 @@
 import { Quaternion } from "three";
 
+/**
+ * Default stabilize duration in milliseconds
+ */
+export const STABLE_DURATION = 300;
+
 export class Stabilizer {
 	readonly #from: Quaternion;
 	readonly #to: Quaternion;
 	readonly #startedAt: number;
 	readonly #duration: number;
 
-	constructor(from: Quaternion, to: Quaternion, duration = 300) {
+	constructor(from: Quaternion, to: Quaternion, duration = STABLE_DURATION) {
 		this.#from = from.clone();
 		this.#to = to;
 		this.#startedAt = performance.now();

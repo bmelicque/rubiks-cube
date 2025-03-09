@@ -92,7 +92,15 @@ const animate = (_: number) => {
 };
 renderer.setAnimationLoop(animate);
 
-document.getElementById("cancel")?.addEventListener("click", () => {
+document.getElementById("undo")!.addEventListener("click", () => {
 	if (stateHandler.state !== State.Still) return;
 	stateHandler.undoLast();
+});
+document.getElementById("rotate-cw")!.addEventListener("click", () => {
+	if (stateHandler.state !== State.Still) return;
+	stateHandler.F();
+});
+document.getElementById("rotate-ccw")!.addEventListener("click", () => {
+	if (stateHandler.state !== State.Still) return;
+	stateHandler.F_();
 });

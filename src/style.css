@@ -23,13 +23,18 @@ body {
 	min-height: 100vh;
 }
 
-#cancel {
+menu {
 	position: absolute;
 	bottom: 2rem;
 	left: 50%;
 	transform: translateX(-50%);
-	width: 3.25rem;
-	height: 3.25rem;
+
+	display: flex;
+	gap: 3rem;
+	padding: 0;
+}
+
+menu button {
 	border: none;
 	background: none;
 	cursor: pointer;
@@ -37,30 +42,12 @@ body {
 
 	--color: rgb(212, 212, 212);
 }
-#cancel:hover {
-	transform: translateX(-50%) scale(1.05);
+menu button:hover {
+	transform: scale(1.05);
 	--color: white;
 }
 
-#cancel .wrapper {
-	position: absolute;
-	top: 0;
-	left: 0;
-}
-
-#cancel .round {
-	position: absolute;
-	width: 2rem;
-	height: 2rem;
-	border-radius: 100%;
-	border: 0.5rem solid var(--color);
-	border-left: 0.5rem solid transparent;
-}
-#cancel .head {
-	position: absolute;
-	width: 0;
-	height: 0;
-	border: 0.75rem solid transparent;
-	border-left: 0.75rem solid var(--color);
-	transform: rotate(135deg) translate(0.74rem, 0.175rem);
+menu .lucide {
+	width: 4rem;
+	height: 4rem;
 }

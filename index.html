@@ -8,12 +8,18 @@
 		<link rel="stylesheet" href="./src/style.css" />
 	</head>
 	<body>
-		<button aria-label="cancel" title="cancel" id="cancel">
-			<div class="wrapper">
-				<div class="round"></div>
-				<div class="head"></div>
-			</div>
-		</button>
+		<menu>
+			<button aria-label="Rotate counter-clockwise" title="Rotate counter-clockwise" id="rotate-ccw">
+				<i data-lucide="rotate-ccw-square"></i>
+			</button>
+			<button aria-label="Undo" title="Undo" id="undo">
+				<i data-lucide="undo"></i>
+			</button>
+			<button aria-label="Rotate clockwise" title="Rotate clockwise" id="rotate-cw">
+				<i data-lucide="rotate-cw-square"></i>
+			</button>
+		</menu>
 		<script type="module" src="/src/main.ts"></script>
+		<script type="module" src="/src/icons.js"></script>
 	</body>
 </html>

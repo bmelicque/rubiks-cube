@@ -1,6 +1,6 @@
 import { Euler, Quaternion, Vector2 } from "three";
 import { Cube, Slice } from "./cube";
-import { Stabilizer } from "./stabilizer";
+import { Stabilizer, STABLE_DURATION } from "./stabilizer";
 import { equals, findClippedOrientation } from "./utils";
 
 export enum State {
@@ -26,8 +26,9 @@ export class Action {
 	from = new Quaternion();
 	to = new Quaternion();
 
-	constructor(from?: Quaternion) {
+	constructor(from?: Quaternion, to?: Quaternion) {
 		if (from) this.from = from.clone();
+		if (to) this.to = to.clone();
 	}
 }
 
@@ -191,13 +192,13 @@ export class StateHandler {
 		// slices don't persist between moves, so they always start at default orientation relative to cube
 		const sliceQuaternion = this.#cube.cube.quaternion;
 		const to = sliceQuaternion.clone().multiply(last.to.clone().conjugate()).multiply(sliceQuaternion);
-		this.#stabilizer = new Stabilizer(sliceQuaternion, to);
+		this.#stabilizer = new Stabilizer(sliceQuaternion, to, STABLE_DURATION / 2);
 		this.#sliceRotationDirection = last.direction!;
 	}
 
 	#undoLastCube(last: Action) {
 		this.#state = State.StabilizingCube;
-		this.#stabilizer = new Stabilizer(last.to, last.from);
+		this.#stabilizer = new Stabilizer(last.to, last.from, STABLE_DURATION / 2);
 	}
 
 	undoLast() {
@@ -207,5 +208,30 @@ export class StateHandler {
 
 		this.#currentAction = null;
 		last.slice ? this.#undoLastSlice(last) : this.#undoLastCube(last);
+	}
+
+	/**
+	 * Generic method for rotating front face
+	 * @param {Quaternion} q The new orientation of the front face
+	 */
+	#f(q: Quaternion) {
+		const slice: Slice = [null, null, 1];
+		this.#cube.groupSlice(slice);
+		const from = this.#cube.cube.quaternion;
+		const to = q.multiply(from);
+		this.#stabilizer = new Stabilizer(from, to);
+		this.#currentAction = new Action(from, to);
+		this.#currentAction!.slice = slice;
+		this.#state = State.StabilizingSlice;
+	}
+
+	/** Rotate front face clockwise */
+	F() {
+		this.#f(new Quaternion(0, 0, -Math.SQRT1_2, Math.SQRT1_2));
+	}
+
+	/** Rotate front face couter-clockwise */
+	F_() {
+		this.#f(new Quaternion(0, 0, Math.SQRT1_2, Math.SQRT1_2));
 	}
 }
