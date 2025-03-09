@@ -1,7 +1,7 @@
 import { Euler, Quaternion, Vector2 } from "three";
 import { Cube, Slice } from "./cube";
 import { Stabilizer, STABLE_DURATION } from "./stabilizer";
-import { equals, findClippedOrientation } from "./utils";
+import { equals, eventPosition, findClippedOrientation } from "./utils";
 
 export enum State {
 	Still,
@@ -9,12 +9,6 @@ export enum State {
 	StabilizingCube,
 	GrabbingSlice,
 	StabilizingSlice,
-}
-
-function mousePosition(e: MouseEvent) {
-	const renderer = document.querySelector("canvas");
-	if (!renderer) throw new Error("invalid app state: renderer should be a canvas element");
-	return new Vector2((e.clientX / renderer.clientWidth) * 2 - 1, -(e.clientY / renderer.clientHeight) * 2 + 1);
 }
 
 export class Action {
@@ -55,6 +49,10 @@ export class StateHandler {
 		this.#cube = cube;
 	}
 
+	get cube() {
+		return this.#cube;
+	}
+
 	get state() {
 		return this.#state;
 	}
@@ -76,7 +74,7 @@ export class StateHandler {
 		}
 	}
 
-	setState(state: State, e?: MouseEvent) {
+	setState(state: State, e?: MouseEvent | TouchEvent) {
 		this.#cleanupPreviousState();
 
 		this.#state = state;
@@ -90,7 +88,7 @@ export class StateHandler {
 				break;
 			case State.GrabbingCube:
 				if (!e) throw new Error("invalid app state: mouse event should've been passed here!");
-				this.#mouseStart = mousePosition(e);
+				this.#mouseStart = eventPosition(e);
 				this.#startQuaternion = this.#cube.cube.quaternion.clone();
 				this.#currentAction = new Action(this.#startQuaternion.clone());
 				break;
@@ -102,7 +100,7 @@ export class StateHandler {
 				break;
 			case State.GrabbingSlice:
 				if (!e) throw new Error("invalid app state: mouse event should've been passed here!");
-				this.#mouseStart = mousePosition(e);
+				this.#mouseStart = eventPosition(e);
 				this.#sliceRotationDirection = null;
 				this.#currentAction = new Action();
 				break;
@@ -174,8 +172,8 @@ export class StateHandler {
 		if (this.#stabilizer.done) this.setState(State.Still);
 	}
 
-	updateCube(e?: MouseEvent) {
-		const mouse = e ? mousePosition(e) : null;
+	updateCube(e?: MouseEvent | TouchEvent) {
+		const mouse = e ? eventPosition(e) : null;
 		switch (this.#state) {
 			case State.Still:
 				return;
@@ -198,13 +196,13 @@ export class StateHandler {
 		// slices don't persist between moves, so they always start at default orientation relative to cube
 		const sliceQuaternion = this.#cube.cube.quaternion;
 		const to = sliceQuaternion.clone().multiply(last.to.clone().conjugate()).multiply(sliceQuaternion);
-		this.#stabilizer = new Stabilizer(sliceQuaternion, to, STABLE_DURATION / 2);
+		this.#stabilizer = new Stabilizer(sliceQuaternion, to, STABLE_DURATION / 3);
 		this.#sliceRotationDirection = last.direction!;
 	}
 
 	#undoLastCube(last: Action) {
 		this.#state = State.StabilizingCube;
-		this.#stabilizer = new Stabilizer(last.to, last.from, STABLE_DURATION / 2);
+		this.#stabilizer = new Stabilizer(last.to, last.from, STABLE_DURATION / 3);
 	}
 
 	undoLast() {
@@ -224,7 +222,6 @@ export class StateHandler {
 	#rotateSlice(slice: Slice, angle: number) {
 		this.#cube.groupSlice(slice);
 		const from = this.#cube.cube.quaternion;
-		// FIXME:
 		const v = (s: number | null) => (s ?? 0) * Math.sin(angle / 2);
 		const q = new Quaternion(v(slice[0]), v(slice[1]), v(slice[2]), Math.cos(angle / 2));
 		const to = q.multiply(from);

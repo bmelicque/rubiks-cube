@@ -1,10 +1,13 @@
-import { Mesh, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from "three";
-import { Cube, CubieKind, getCubieKind } from "./cube";
+import { PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { Cube } from "./cube";
+import { addGrabEventListeners } from "./grab";
 import { State, StateHandler } from "./state";
+
+const FOV = 20;
 
 function makeCamera() {
 	const aspect = innerWidth / innerHeight;
-	const camera = new PerspectiveCamera(20, aspect);
+	const camera = new PerspectiveCamera(FOV, aspect);
 	camera.position.z = 15;
 	return camera;
 }
@@ -21,70 +24,23 @@ const camera = makeCamera();
 const canvas = document.createElement("canvas");
 const renderer = makeRenderer(canvas);
 document.body.appendChild(canvas);
+const resize = () => {
+	camera.aspect = innerWidth / innerHeight;
+	const angle = (Math.min(FOV, FOV * camera.aspect) * Math.PI) / 180;
+	const halfWidth = 1.5; // 3 cubies / 2
+	camera.position.z = halfWidth * Math.sqrt(3) * (1 + 1 / Math.tan(angle / 2));
+	camera.updateProjectionMatrix();
+	renderer.setSize(innerWidth, innerHeight);
+};
+addEventListener("resize", resize);
+resize();
 
 const cube = new Cube();
 scene.add(cube.cube);
 
 const stateHandler = new StateHandler(cube);
 
-const raycaster = new Raycaster();
-const hovered = (e: MouseEvent) => {
-	const mouse = new Vector2(
-		(e.clientX / renderer.domElement.clientWidth) * 2 - 1,
-		-(e.clientY / renderer.domElement.clientHeight) * 2 + 1
-	);
-	raycaster.setFromCamera(mouse, camera);
-	return raycaster.intersectObjects(cube.cube.children)[0];
-};
-function updateCursor(e: MouseEvent) {
-	const canvas = document.querySelector("canvas")!;
-	switch (stateHandler.state) {
-		case State.Still:
-			canvas.style.cursor = hovered(e) ? "grab" : "auto";
-			return;
-		case State.StabilizingCube:
-		case State.StabilizingSlice:
-			canvas.style.cursor = "auto";
-			return;
-		case State.GrabbingSlice:
-		case State.GrabbingCube:
-			canvas.style.cursor = "grabbing";
-			return;
-	}
-}
-canvas.addEventListener("mousemove", (e) => {
-	stateHandler.updateCube(e);
-	updateCursor(e);
-});
-canvas.addEventListener("mousedown", (e) => {
-	if (stateHandler.state !== State.Still) return;
-	const intersection = hovered(e);
-	if (!intersection) return;
-	const cubie = intersection.object as Mesh;
-	const cubieKind = getCubieKind(cubie);
-	switch (cubieKind) {
-		case CubieKind.Center:
-			stateHandler.setState(State.GrabbingCube, e);
-			return;
-		case CubieKind.Edge:
-		case CubieKind.Corner:
-			intersection.point.round();
-			stateHandler.grabAt(new Vector2(intersection.point.x, intersection.point.y));
-			stateHandler.setState(State.GrabbingSlice, e);
-			return;
-	}
-});
-
-canvas.addEventListener("mouseup", () => {
-	switch (stateHandler.state) {
-		case State.GrabbingCube:
-			stateHandler.setState(State.StabilizingCube);
-			return;
-		case State.GrabbingSlice:
-			stateHandler.setState(State.StabilizingSlice);
-			return;
-	}
-});
+addGrabEventListeners(canvas, camera, stateHandler);
 
 const animate = (_: number) => {
 	stateHandler.updateCube();
@@ -96,6 +52,12 @@ document.getElementById("undo")!.addEventListener("click", () => {
 	if (stateHandler.state !== State.Still) return;
 	stateHandler.undoLast();
 });
+document.getElementById("undo")!.addEventListener("touchstart", (e) => {
+	e.preventDefault();
+	if (stateHandler.state !== State.Still) return;
+	stateHandler.undoLast();
+});
+
 document.getElementById("rotate-cw")!.addEventListener("click", () => {
 	if (stateHandler.state !== State.Still) return;
 	stateHandler.F();

@@ -1,4 +1,4 @@
-import { Quaternion } from "three";
+import { Quaternion, Vector2 } from "three";
 import { Face, getAdjacentFaces, getFaceName } from "./face";
 
 const S3 = Math.sin(Math.PI / 3) / Math.sqrt(3); // = .5 btw
@@ -65,4 +65,22 @@ export function findClippedOrientation(orientation: Quaternion): Quaternion {
 
 export function equals(a: Quaternion, b: Quaternion): boolean {
 	return Math.abs(a.clone().dot(b)) > 1 - Number.EPSILON;
+}
+
+/**
+ * Compute the mouse|touch position
+ * @param e the event
+ */
+export function eventPosition(e: MouseEvent | TouchEvent): Vector2 {
+	const renderer = document.querySelector("canvas");
+	if (!renderer) throw new Error("canvas not found!");
+	if (e instanceof TouchEvent) {
+		const { touches, changedTouches } = e;
+		const touch = touches[0] ?? changedTouches[0];
+		return new Vector2((touch.pageX / renderer.clientWidth) * 2 - 1, -(touch.pageY / renderer.clientHeight) * 2 + 1);
+	}
+	if (e instanceof MouseEvent) {
+		return new Vector2((e.clientX / renderer.clientWidth) * 2 - 1, -(e.clientY / renderer.clientHeight) * 2 + 1);
+	}
+	throw new Error("unhandled event type");
 }
