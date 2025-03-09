@@ -34,7 +34,7 @@ menu {
 	padding: 0;
 }
 
-menu button {
+button {
 	border: none;
 	background: none;
 	cursor: pointer;
@@ -42,12 +42,18 @@ menu button {
 
 	--color: rgb(212, 212, 212);
 }
-menu button:hover {
+button:hover {
 	transform: scale(1.05);
 	--color: white;
 }
 
-menu .lucide {
+.lucide {
 	width: 4rem;
 	height: 4rem;
+}
+
+#shuffle {
+	position: absolute;
+	top: 2rem;
+	left: 2rem;
 }

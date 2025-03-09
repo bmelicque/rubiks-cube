@@ -104,3 +104,7 @@ document.getElementById("rotate-ccw")!.addEventListener("click", () => {
 	if (stateHandler.state !== State.Still) return;
 	stateHandler.F_();
 });
+document.getElementById("shuffle")!.addEventListener("click", () => {
+	if (stateHandler.state !== State.Still) return;
+	stateHandler.shuffle();
+});

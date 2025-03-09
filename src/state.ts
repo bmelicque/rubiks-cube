@@ -32,6 +32,9 @@ export class Action {
 	}
 }
 
+type _CWMove = "F" | "R" | "L" | "B" | "U" | "D";
+type Move = _CWMove | `${_CWMove}_`;
+
 export class StateHandler {
 	#state = State.Still;
 	#cube: Cube;
@@ -45,6 +48,8 @@ export class StateHandler {
 
 	#currentAction: Action | null = new Action();
 	#history: Action[] = [];
+
+	#todo: Move[] = [];
 
 	constructor(cube: Cube) {
 		this.#cube = cube;
@@ -74,12 +79,14 @@ export class StateHandler {
 	setState(state: State, e?: MouseEvent) {
 		this.#cleanupPreviousState();
 
+		this.#state = state;
 		switch (state) {
 			case State.Still:
 				if (this.#currentAction && !equals(this.#currentAction.from, this.#currentAction.to)) {
 					this.#history.push(this.#currentAction);
 				}
 				this.#currentAction = null;
+				if (this.#todo.length) this[this.#todo.shift()!]();
 				break;
 			case State.GrabbingCube:
 				if (!e) throw new Error("invalid app state: mouse event should've been passed here!");
@@ -107,7 +114,6 @@ export class StateHandler {
 				this.#stabilizer = new Stabilizer(worldQuarternion, sliceTargetOrientation);
 				break;
 		}
-		this.#state = state;
 	}
 
 	grabAt(position: Vector2) {
@@ -211,15 +217,19 @@ export class StateHandler {
 	}
 
 	/**
-	 * Generic method for rotating front face
-	 * @param {Quaternion} q The new orientation of the front face
+	 * Generic method for rotating a slice
+	 * @param {Slice} slice the slice to rotate
+	 * @param {number} angle angle of rotation (positive for right-hand rotation)
 	 */
-	#f(q: Quaternion) {
-		const slice: Slice = [null, null, 1];
+	#rotateSlice(slice: Slice, angle: number) {
 		this.#cube.groupSlice(slice);
 		const from = this.#cube.cube.quaternion;
+		// FIXME:
+		const v = (s: number | null) => (s ?? 0) * Math.sin(angle / 2);
+		const q = new Quaternion(v(slice[0]), v(slice[1]), v(slice[2]), Math.cos(angle / 2));
 		const to = q.multiply(from);
-		this.#stabilizer = new Stabilizer(from, to);
+		const duration = STABLE_DURATION / (3 - 2 * (1 / (1 + this.#todo.length)));
+		this.#stabilizer = new Stabilizer(from, to, duration);
 		this.#currentAction = new Action(from, to);
 		this.#currentAction!.slice = slice;
 		this.#state = State.StabilizingSlice;
@@ -227,11 +237,63 @@ export class StateHandler {
 
 	/** Rotate front face clockwise */
 	F() {
-		this.#f(new Quaternion(0, 0, -Math.SQRT1_2, Math.SQRT1_2));
+		this.#rotateSlice([null, null, 1], -Math.PI / 2);
 	}
 
 	/** Rotate front face couter-clockwise */
 	F_() {
-		this.#f(new Quaternion(0, 0, Math.SQRT1_2, Math.SQRT1_2));
+		this.#rotateSlice([null, null, 1], Math.PI / 2);
+	}
+
+	R() {
+		this.#rotateSlice([1, null, null], -Math.PI / 2);
+	}
+	R_() {
+		this.#rotateSlice([1, null, null], Math.PI / 2);
+	}
+	B() {
+		this.#rotateSlice([null, null, -1], -Math.PI / 2);
+	}
+	B_() {
+		this.#rotateSlice([null, null, -1], Math.PI / 2);
+	}
+	L() {
+		this.#rotateSlice([-1, null, null], -Math.PI / 2);
+	}
+	L_() {
+		this.#rotateSlice([-1, null, null], Math.PI / 2);
+	}
+	U() {
+		this.#rotateSlice([null, 1, null], -Math.PI / 2);
+	}
+	U_() {
+		this.#rotateSlice([null, 1, null], Math.PI / 2);
+	}
+	D() {
+		this.#rotateSlice([null, -1, null], -Math.PI / 2);
+	}
+	D_() {
+		this.#rotateSlice([null, -1, null], Math.PI / 2);
+	}
+
+	/**
+	 * Shuffle the cube with random moves
+	 * @param count the number of random moves to operate
+	 */
+	shuffle(count = 20) {
+		if (count <= 0) return;
+		const faces = "FRLUBD".split("");
+		const moves: Move[] = faces.concat(faces.map((face) => `${face}_`)) as any;
+		const randomMove = () => moves[Math.floor(Math.random() * moves.length)];
+		const todo = [randomMove()];
+		for (let i = 1; i < count; i++) {
+			let move: Move;
+			do {
+				move = randomMove();
+			} while (move[0] === todo[i - 1][0]);
+			todo.push(move);
+		}
+		this.#todo.push(...todo);
+		this[this.#todo.shift()!]();
 	}
 }
