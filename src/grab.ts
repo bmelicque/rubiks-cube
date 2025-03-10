@@ -36,6 +36,7 @@ export function addGrabEventListeners(canvas: HTMLCanvasElement, camera: Camera,
 		updateCursor(e);
 	});
 	canvas.addEventListener("touchmove", (e) => {
+		e.preventDefault();
 		stateHandler.updateCube(e);
 		updateCursor(e);
 	});
